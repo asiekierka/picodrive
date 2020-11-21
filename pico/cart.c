@@ -49,6 +49,7 @@ typedef struct _cso_struct
 }
 cso_struct;
 
+#ifndef NO_ZIP
 static int uncompress_buf(void *dest, int destLen, void *source, int sourceLen)
 {
     z_stream stream;
@@ -74,6 +75,7 @@ static int uncompress_buf(void *dest, int destLen, void *source, int sourceLen)
 
     return inflateEnd(&stream);
 }
+#endif
 
 static const char *get_ext(const char *path)
 {
@@ -165,6 +167,7 @@ zip_failed:
   }
   else
 #endif
+#ifndef NO_MCD
   if (strcasecmp(ext, "cso") == 0)
   {
     cso_struct *cso = NULL, *tmp = NULL;
@@ -225,6 +228,7 @@ cso_failed:
     if (f != NULL) fclose(f);
     return NULL;
   }
+#endif
 
   /* not a zip, treat as uncompressed file */
   f = fopen(path, "rb");
@@ -260,6 +264,7 @@ size_t pm_read(void *ptr, size_t bytes, pm_file *stream)
   {
     ret = fread(ptr, 1, bytes, stream->file);
   }
+#ifndef NO_ZIP
   else if (stream->type == PMT_ZIP)
   {
     struct zip_file *z = stream->file;
@@ -290,6 +295,8 @@ size_t pm_read(void *ptr, size_t bytes, pm_file *stream)
     z->pos += bytes - z->stream.avail_out;
     return bytes - z->stream.avail_out;
   }
+#endif
+#ifndef NO_MCD
   else if (stream->type == PMT_CSO)
   {
     cso_struct *cso = stream->param;
@@ -352,6 +359,7 @@ size_t pm_read(void *ptr, size_t bytes, pm_file *stream)
       index_end = cso->index[block+1];
     }
   }
+#endif
   else
     ret = 0;
 
@@ -365,6 +373,7 @@ int pm_seek(pm_file *stream, long offset, int whence)
     fseek(stream->file, offset, whence);
     return ftell(stream->file);
   }
+#ifndef NO_ZIP
   else if (stream->type == PMT_ZIP)
   {
     struct zip_file *z = stream->file;
@@ -407,6 +416,8 @@ int pm_seek(pm_file *stream, long offset, int whence)
     }
     return z->pos;
   }
+#endif
+#ifndef NO_MCD
   else if (stream->type == PMT_CSO)
   {
     cso_struct *cso = stream->param;
@@ -418,6 +429,7 @@ int pm_seek(pm_file *stream, long offset, int whence)
     }
     return cso->fpos_out;
   }
+#endif
   else
     return -1;
 }
@@ -440,11 +452,13 @@ int pm_close(pm_file *fp)
     closezip(z->zip);
   }
 #endif
+#ifndef NO_MCD
   else if (fp->type == PMT_CSO)
   {
     free(fp->param);
     fclose(fp->file);
   }
+#endif
   else
     ret = EOF;
 

@@ -124,6 +124,7 @@ looks_like_sms:
 /* checks if fname points to valid MegaCD image */
 int PicoCdCheck(const char *fname_in, int *pregion)
 {
+#ifndef NO_MCD
   const char *fname = fname_in;
   unsigned char buf[32];
   pm_file *cd_f;
@@ -189,6 +190,9 @@ int PicoCdCheck(const char *fname_in, int *pregion)
     *pregion = region;
 
   return type;
+#else
+  return 0;
+#endif
 }
 
 enum media_type_e PicoLoadMedia(const char *filename,
@@ -209,12 +213,15 @@ enum media_type_e PicoLoadMedia(const char *filename,
   if (media_type == PM_BAD_DETECT)
     goto out;
 
+#ifndef NO_MCD
   if ((PicoIn.AHW & PAHW_MCD) && Pico_mcd != NULL)
     cdd_unload();
+#endif
   PicoCartUnload();
   PicoIn.AHW = 0;
   PicoIn.quirks = 0;
 
+#ifndef NO_MCD
   if (media_type == PM_CD)
   {
     // check for MegaCD image
@@ -237,7 +244,9 @@ enum media_type_e PicoLoadMedia(const char *filename,
       goto out;
     }
   }
-  else if (media_type == PM_MARK3) {
+  else
+#endif
+  if (media_type == PM_MARK3) {
     lprintf("detected SMS ROM\n");
     PicoIn.AHW = PAHW_SMS;
   }

@@ -16,7 +16,6 @@
 
 // #include "fat/gba_nds_fat.h"
 
-char fileName[256];
 int numFiles = 0;
 int scrollPos = 0;
 int scrollDelay = 0;
@@ -199,7 +198,7 @@ void updateCursor() {
 
 }
 
-pm_file* loadFile() {
+bool selectFile(char *filename_buf, size_t filename_len) {
   int keysPressed, keysReleased, keysDownNonRepeat;
   iprintf("\x1b[4;10HLoad File");
   dir = opendir(".");
@@ -248,13 +247,10 @@ pm_file* loadFile() {
 				cursorFile=0;
 				updateCursor();
 			} else {
-				iprintf("\x1b[6;0H\x1b[0J");
-				
-				iprintf("Loading %s ... ",file->name);
-				pm_file* handle = pm_open(file->name);
-				strcpy(fileName,file->name);
+				strncpy(filename_buf, file->name, filename_len - 1);
+				filename_buf[filename_len - 1] = 0;
 				freeFileList();
-				return handle;
+				return true;
 								
 				break;
 
@@ -264,7 +260,7 @@ pm_file* loadFile() {
 
 		if ( keysDownNonRepeat & KEY_SELECT) {
 			if(choosingfile == 2) {
-				return NULL;
+				return false;
 			}
 		}
 		

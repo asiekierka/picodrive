@@ -1,5 +1,3 @@
 #include "pico/pico.h"
 
-pm_file* loadFile();
-
-extern char fileName[256];
+bool selectFile(char *filename_buf, size_t filename_len);
