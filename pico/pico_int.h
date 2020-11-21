@@ -16,6 +16,12 @@
 #include "pico.h"
 #include "carthw/carthw.h"
 
+#ifdef _NDS
+#define ITCM_CODE	__attribute__((section(".itcm"), long_call))
+#define DTCM_DATA	__attribute__((section(".dtcm")))
+#define DTCM_BSS	__attribute__((section(".sbss")))
+#endif
+
 //
 #define USE_POLL_DETECT
 
@@ -673,7 +679,11 @@ void PicoWrite8_io(unsigned int a, unsigned int d);
 void PicoWrite16_io(unsigned int a, unsigned int d);
 
 // pico/memory.c
+#ifndef NO_PICO
 PICO_INTERNAL void PicoMemSetupPico(void);
+#else
+#define PicoMemSetupPico()
+#endif
 
 // cd/cdc.c
 void cdc_init(void);
@@ -711,12 +721,16 @@ int gfx_context_load(const unsigned char *state);
 void DmaSlowCell(unsigned int source, unsigned int a, int len, unsigned char inc);
 
 // cd/memory.c
+#ifndef NO_MCD
 PICO_INTERNAL void PicoMemSetupCD(void);
 unsigned int PicoRead8_mcd_io(unsigned int a);
 unsigned int PicoRead16_mcd_io(unsigned int a);
 void PicoWrite8_mcd_io(unsigned int a, unsigned int d);
 void PicoWrite16_mcd_io(unsigned int a, unsigned int d);
 void pcd_state_loaded_mem(void);
+#else
+#define PicoMemSetupCD()
+#endif
 
 // pico.c
 extern struct Pico Pico;
@@ -735,6 +749,7 @@ PICO_INTERNAL void PicoSyncZ80(unsigned int m68k_cycles_done);
 #define PCDS_IEN5     (1<<5)
 #define PCDS_IEN6     (1<<6)
 
+#ifndef NO_MCD
 PICO_INTERNAL void PicoInitMCD(void);
 PICO_INTERNAL void PicoExitMCD(void);
 PICO_INTERNAL void PicoPowerMCD(void);
@@ -757,21 +772,42 @@ int  pcd_sync_s68k(unsigned int m68k_target, int m68k_poll_sync);
 void pcd_run_cpus(int m68k_cycles);
 void pcd_soft_reset(void);
 void pcd_state_loaded(void);
+#else
+#define PicoInitMCD()
+#define PicoExitMCD()
+#define PicoPowerMCD()
+#define PicoResetMCD()
+#define PicoFrameMCD()
+#define pcd_state_loaded()
+#endif
 
 // cd/pcm.c
+#ifndef NO_MCD
 void pcd_pcm_sync(unsigned int to);
 void pcd_pcm_update(int *buffer, int length, int stereo);
 void pcd_pcm_write(unsigned int a, unsigned int d);
 unsigned int pcd_pcm_read(unsigned int a);
+#else
+#define pcd_pcm_update(a,b,c)
+#endif
 
 // pico/pico.c
+#ifndef NO_PICO
 PICO_INTERNAL void PicoInitPico(void);
 PICO_INTERNAL void PicoReratePico(void);
+#else
+#define PicoInitPico()
+#define PicoReratePico()
+#endif
 
 // pico/xpcm.c
+#ifndef NO_PICO
 PICO_INTERNAL void PicoPicoPCMUpdate(short *buffer, int length, int stereo);
 PICO_INTERNAL void PicoPicoPCMReset(void);
 PICO_INTERNAL void PicoPicoPCMRerate(int xpcm_rate);
+#else
+#define PicoPicoPCMUpdate(a,b,c)
+#endif
 
 // sek.c
 PICO_INTERNAL void SekInit(void);
@@ -967,7 +1003,7 @@ void REGPARM(3) sh2_peripheral_write32(unsigned int a, unsigned int d, SH2 *sh2)
 #define PicoReset32x()
 #define PicoFrame32x()
 #define PicoUnload32x()
-#define Pico32xStateLoaded()
+#define Pico32xStateLoaded(x)
 #define FinalizeLine32xRGB555 NULL
 #define p32x_pwm_update(...)
 #define p32x_timers_recalc()

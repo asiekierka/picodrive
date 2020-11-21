@@ -1,5 +1,6 @@
 
 /* svp */
+#ifndef NO_SVP
 #include "svp/ssp16.h"
 
 typedef struct {
@@ -13,6 +14,11 @@ extern svp_t *svp;
 void PicoSVPInit(void);
 void PicoSVPStartup(void);
 void PicoSVPMemSetup(void);
+#else
+#define PicoSVPInit()
+#define PicoSVPStartup()
+#define PicoSVPMemSetup()
+#endif
 
 /* standard/ssf2 mapper */
 extern int carthw_ssf2_active;

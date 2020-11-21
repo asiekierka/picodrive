@@ -1447,14 +1447,25 @@ DrawWindow:
 
 @ r2,r3 - scratch, lr = 0x001c001c, r8 = 0x08610861
 .macro convRGB565 reg
+#ifdef _NDS
+    and     r2,   lr,   \reg,lsl #1  @ b
+    and     r3,   lr,   \reg,lsr #3  @ g
+    and     \reg, lr,   \reg,lsr #7  @ r
+    orr     r2,   r2,   r3,  lsl #5
+    orr     \reg, r2,   \reg,lsl #10
+#else
     and     r2,   lr,   \reg,lsr #7  @ b
     and     r3,   lr,   \reg,lsr #3  @ g
     and     \reg, lr,   \reg,lsl #1  @ r
     orr     r2,   r2,   r3,  lsl #6
     orr     \reg, r2,   \reg,lsl #11
+#endif
 
     and     r2,   r8,   \reg,lsr #4
     orr     \reg, \reg, r2
+#ifdef _NDS
+    orr     \reg, \reg, r11
+#endif
 .endm
 
 @ trashes: r2-r8,r12,lr; r8 = 0x08610861; r0,r1 are advanced
@@ -1462,6 +1473,10 @@ DrawWindow:
     mov     r12, r2, lsr #3  @ repeats
     mov     lr, #0x001c0000
     orr     lr, lr,  #0x01c  @ lr == pattern 0x001c001c
+#ifdef _NDS
+    mov     r11, #0x8000
+    orr     r11, r11, r11, lsl #16
+#endif
 
 0:
     ldmia   r1!, {r4-r7}
@@ -1483,13 +1498,17 @@ DrawWindow:
 
 vidConvCpyRGB565: @ void *to, void *from, int pixels
     stmfd   sp!, {r4-r9,lr}
+#ifdef _NDS
+    mov     r8,     #0x0021
+    orr     r8, r8, #0x0400
+#else
     mov     r8,     #0x0061
     orr     r8, r8, #0x0800
+#endif
     orr     r8, r8, r8, lsl #16
     vidConvCpyRGB565_local
     ldmfd   sp!, {r4-r9,lr}
     bx      lr
-
 
 @ void PicoDoHighPal555(int sh, int line, struct PicoEState *est)
 
@@ -1511,8 +1530,13 @@ PicoDoHighPal555_nopush:
 
     ldr     r1, [r10, #OFS_EST_PicoMem_cram]
     mov     r2, #0x40
+#ifdef _NDS
+    mov     r8,     #0x0021
+    orr     r8, r8, #0x0400
+#else
     mov     r8,     #0x0061
     orr     r8, r8, #0x0800
+#endif
     orr     r8, r8, r8, lsl #16
 
     vidConvCpyRGB565_local
@@ -1523,10 +1547,18 @@ PicoDoHighPal555_nopush:
     add     r3, r10, #OFS_EST_HighPal
 
     @ shadowed pixels:
+#ifdef _NDS
+    mov     r12,    #0x00ce
+    add     r4, r3, #0x40*2
+    orr     r12,r12,#0x3900
+    add     r5, r3, #0xc0*2
+#else
     mov     r12,    #0x008e
     add     r4, r3, #0x40*2
     orr     r12,r12,#0x7300
     add     r5, r3, #0xc0*2
+#endif
+
     orr     r12,r12,r12,lsl #16
     mov     lr, #0x40/4
 .fl_loopcpRGB555_sh:
@@ -1534,6 +1566,10 @@ PicoDoHighPal555_nopush:
     subs    lr, lr, #1
     and     r1, r12, r1, lsr #1
     and     r6, r12, r6, lsr #1
+#ifdef _NDS
+    orr     r1, r1, r11
+    orr     r6, r6, r11
+#endif
     stmia   r4!, {r1,r6}
     stmia   r5!, {r1,r6}
     bne     .fl_loopcpRGB555_sh
@@ -1554,6 +1590,10 @@ PicoDoHighPal555_nopush:
     and     r7, r8, r6, lsr #4
     orr     r1, r1, r5
     orr     r6, r6, r7
+#ifdef _NDS
+    orr     r1, r1, r11
+    orr     r6, r6, r11
+#endif
     stmia   r4!, {r1,r6}
     subs    lr, lr, #1
     bne     .fl_loopcpRGB555_hi
@@ -1565,7 +1605,6 @@ PicoDoHighPal555_end:
 
     ldr     r8, [r10, #OFS_EST_Pico]
     b       FinalizeLineRGB555_pal_done
-
 
 @ void FinalizeLine555(int sh, int line, struct PicoEState *est)
 
@@ -1579,7 +1618,7 @@ FinalizeLine555:
     ldrb    r2, [r8, #OFS_Pico_m_dirtyPal]
     mov     r1, #1
     tst     r2, r2
-    bne     PicoDoHighPal555_nopush
+    bne      PicoDoHighPal555_nopush
 
 FinalizeLineRGB555_pal_done:
     add     r3, r10, #OFS_EST_HighPal

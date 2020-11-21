@@ -256,6 +256,15 @@ void PicoDoHighPal555M4(void)
   Pico.m.dirtyPal = 0;
 
   /* cram is always stored as shorts, even though real hardware probably uses bytes */
+#ifdef _NDS
+  for (i = 0x20/2; i > 0; i--, spal++, dpal++) {
+    t = *spal;
+    t = ((t & 0x00030003)<< 3) | ((t & 0x000c000c)<<6) | ((t & 0x00300030)<<9);
+    t |= t >> 2;
+    t |= (t >> 4) & 0x04210421;
+    *dpal = t | 0x80008000;
+  }
+#else
   for (i = 0x20/2; i > 0; i--, spal++, dpal++) {
     t = *spal;
 #ifdef USE_BGR555
@@ -267,6 +276,7 @@ void PicoDoHighPal555M4(void)
     t |= (t >> 4) & 0x08610861;
     *dpal = t;
   }
+#endif
   Pico.est.HighPal[0xe0] = 0;
 }
 

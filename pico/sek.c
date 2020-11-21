@@ -13,6 +13,9 @@
 /* context */
 // Cyclone 68000
 #ifdef EMU_C68K
+#ifdef _NDS
+DTCM_BSS
+#endif
 struct Cyclone PicoCpuCM68k;
 #endif
 // MUSASHI 68000
@@ -191,7 +194,11 @@ PICO_INTERNAL void SekPackCpu(unsigned char *cpu, int is_sub)
   unsigned int pc=0;
 
 #if defined(EMU_C68K)
+#ifndef NO_MCD
   struct Cyclone *context = is_sub ? &PicoCpuCS68k : &PicoCpuCM68k;
+#else
+  struct Cyclone *context = &PicoCpuCM68k;
+#endif
   memcpy(cpu,context->d,0x40);
   pc=context->pc-context->membase;
   *(unsigned int *)(cpu+0x44)=CycloneGetSr(context);
@@ -219,14 +226,22 @@ PICO_INTERNAL void SekPackCpu(unsigned char *cpu, int is_sub)
 #endif
 
   *(unsigned int *)(cpu+0x40) = pc;
+#ifndef NO_MCD
   *(unsigned int *)(cpu+0x50) =
     is_sub ? SekCycleCntS68k : Pico.t.m68c_cnt;
+#else
+  *(unsigned int *)(cpu+0x50) = Pico.t.m68c_cnt;
+#endif
 }
 
 PICO_INTERNAL void SekUnpackCpu(const unsigned char *cpu, int is_sub)
 {
 #if defined(EMU_C68K)
+#ifndef NO_MCD
   struct Cyclone *context = is_sub ? &PicoCpuCS68k : &PicoCpuCM68k;
+#else
+  struct Cyclone *context = &PicoCpuCM68k;
+#endif
   CycloneSetSr(context, *(unsigned int *)(cpu+0x44));
   context->osp=*(unsigned int *)(cpu+0x48);
   memcpy(context->d,cpu,0x40);
@@ -257,9 +272,11 @@ PICO_INTERNAL void SekUnpackCpu(const unsigned char *cpu, int is_sub)
   context->execinfo &= ~FM68K_HALTED;
   if (cpu[0x4d]&1) context->execinfo |= FM68K_HALTED;
 #endif
+#ifndef NO_MCD
   if (is_sub)
     SekCycleCntS68k = *(unsigned int *)(cpu+0x50);
   else
+#endif
     Pico.t.m68c_cnt = *(unsigned int *)(cpu+0x50);
 }
 
@@ -457,9 +474,15 @@ static int current_68k;
 void SekTrace(int is_s68k)
 {
   struct ref_68k *x68k = &ref_68ks[is_s68k];
+#ifndef NO_MCD
   u32 pc = is_s68k ? SekPcS68k : SekPc;
   u32 sr = is_s68k ? SekSrS68k : SekSr;
   u32 cycles = is_s68k ? SekCycleCntS68k : Pico.t.m68c_cnt;
+#else
+  u32 pc = SekPc;
+  u32 sr = SekSr;
+  u32 cycle = Pico.t.m68c_cnt;
+#endif
   u32 r;
   u8 cmd;
 #ifdef CPU_CMP_W

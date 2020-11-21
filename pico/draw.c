@@ -29,6 +29,9 @@
  */
 
 #include "pico_int.h"
+#ifdef _NDS
+#include <nds.h>
+#endif
 
 int (*PicoScanBegin)(unsigned int num) = NULL;
 int (*PicoScanEnd)  (unsigned int num) = NULL;
@@ -1240,6 +1243,39 @@ void BackFill(int reg7, int sh, struct PicoEState *est)
 // --------------------------------------------
 
 #ifndef _ASM_DRAW_C
+#ifdef _NDS
+void PicoDoHighPal555(int sh, int line, struct PicoEState *est)
+{
+  unsigned int *spal, *dpal;
+  unsigned int t, i;
+
+  Pico.m.dirtyPal = 0;
+
+  spal = (void *)PicoMem.cram;
+  dpal = (void *)est->HighPal;
+
+  for (i = 0; i < 0x40 / 2; i++) {
+    t = spal[i];
+    t = ((t & 0x000e000e)<< 1) | ((t & 0x00e000e0)<<2) | ((t & 0x0e000e00)<<3) | 0x80008000;
+    t |= (t >> 4) & 0x04210421;
+    dpal[i] = t;
+  }
+
+  // norm: xxx0, sh: 0xxx, hi: 0xxx + 7
+  if (sh)
+  {
+    // shadowed pixels
+    for (i = 0; i < 0x40 / 2; i++)
+      dpal[0x40/2 | i] = dpal[0xc0/2 | i] = ((dpal[i] >> 1) & 0x39ce39ce) | 0x80008000;
+    // hilighted pixels
+    for (i = 0; i < 0x40 / 2; i++) {
+      t = ((dpal[i] >> 1) & 0x39ce39ce) + 0x39ce39ce; // 0x7bef7bef;
+      t |= (t >> 4) & 0x04210421;
+      dpal[0x80/2 | i] = t | 0x80008000;
+    }
+  }
+}
+#else
 void PicoDoHighPal555(int sh, int line, struct PicoEState *est)
 {
   unsigned int *spal, *dpal;
@@ -1277,7 +1313,10 @@ void PicoDoHighPal555(int sh, int line, struct PicoEState *est)
     }
   }
 }
+#endif
+#endif
 
+#ifndef _ASM_DRAW_C
 void FinalizeLine555(int sh, int line, struct PicoEState *est)
 {
   unsigned short *pd=est->DrawLineDest;
@@ -1629,7 +1668,9 @@ void PicoDrawSetOutFormat(pdso_t which, int use_32x_line_mode)
       FinalizeLine = NULL;
       break;
   }
+#ifndef NO_32X
   PicoDrawSetOutFormat32x(which, use_32x_line_mode);
+#endif
   PicoDrawSetOutputMode4(which);
   rendstatus_old = -1;
 }
@@ -1659,6 +1700,7 @@ void PicoDrawSetCallbacks(int (*begin)(unsigned int num), int (*end)(unsigned in
 {
   PicoScanBegin = NULL;
   PicoScanEnd = NULL;
+#ifndef NO_32X
   PicoScan32xBegin = NULL;
   PicoScan32xEnd = NULL;
 
@@ -1666,7 +1708,9 @@ void PicoDrawSetCallbacks(int (*begin)(unsigned int num), int (*end)(unsigned in
     PicoScan32xBegin = begin;
     PicoScan32xEnd = end;
   }
-  else {
+  else
+#endif
+  {
     PicoScanBegin = begin;
     PicoScanEnd = end;
   }

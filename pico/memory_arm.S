@@ -68,9 +68,11 @@ PicoRead8_io: @ u32 a
     beq     io_ports_read
 
 m_read8_not_io:
+#ifndef NO_32X
     and     r2, r0, #0xfc00
     cmp     r2, #0x1000
     bne     PicoRead8_32x
+#endif
 
     ldr     r3, =Pico
     mov     r1, r0
@@ -136,9 +138,11 @@ PicoRead16_io: @ u32 a, u32 d
     ldmfd   sp!,{pc}
 
 m_read16_not_io:
+#ifndef NO_32X
     and     r2, r0, #0xfc00
     cmp     r2, #0x1000
     bne     PicoRead16_32x
+#endif
 
     ldr     r3, =Pico
     and     r2, r0, #0xff00
@@ -177,11 +181,13 @@ m_write8_not_io:
     beq     ctl_write_z80reset
 
 m_write8_not_z80ctl:
+#ifndef NO_32X
     @ unlikely
     eor     r2, r0, #0xa10000
     eor     r2, r2, #0x003000
     eors    r2, r2, #0x0000f1
     bne     PicoWrite8_32x
+#endif
     ldr     r3, =Pico
     ldrb    r2, [r3, #OFS_Pico_m_sram_reg]
     and     r1, r1, #(SRR_MAPPED|SRR_READONLY)
@@ -207,11 +213,13 @@ m_write16_not_io:
     beq     ctl_write_z80reset
 
 m_write16_not_z80ctl:
+#ifndef NO_32X
     @ unlikely
     eor     r2, r0, #0xa10000
     eor     r2, r2, #0x003000
     eors    r2, r2, #0x0000f0
     bne     PicoWrite16_32x
+#endif
     ldr     r3, =Pico
     ldrb    r2, [r3, #OFS_Pico_m_sram_reg]
     and     r1, r1, #(SRR_MAPPED|SRR_READONLY)

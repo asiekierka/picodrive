@@ -109,6 +109,7 @@ static void DmaSlow(int len, unsigned int source)
     base = (u16 *)PicoMem.ram;
     mask = 0xffff;
   }
+#ifndef NO_MCD
   else if (PicoIn.AHW & PAHW_MCD)
   {
     u8 r3 = Pico_mcd->s68k_regs[3];
@@ -133,6 +134,7 @@ static void DmaSlow(int len, unsigned int source)
       source -= 2; // XXX: test
     }
   }
+#endif
   else
   {
     // if we have DmaHook, let it handle ROM because of possible DMA delay

@@ -109,6 +109,7 @@ pm_file *pm_open(const char *path)
     return NULL;
 
   ext = get_ext(path);
+#ifndef NO_ZIP
   if (strcasecmp(ext, "zip") == 0)
   {
     struct zip_file *zfile = NULL;
@@ -162,7 +163,9 @@ zip_failed:
       return NULL;
     }
   }
-  else if (strcasecmp(ext, "cso") == 0)
+  else
+#endif
+  if (strcasecmp(ext, "cso") == 0)
   {
     cso_struct *cso = NULL, *tmp = NULL;
     int size;
@@ -429,12 +432,14 @@ int pm_close(pm_file *fp)
   {
     fclose(fp->file);
   }
+#ifndef NO_ZIP
   else if (fp->type == PMT_ZIP)
   {
     struct zip_file *z = fp->file;
     inflateEnd(&z->stream);
     closezip(z->zip);
   }
+#endif
   else if (fp->type == PMT_CSO)
   {
     free(fp->param);

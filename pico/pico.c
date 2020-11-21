@@ -10,6 +10,9 @@
 #include "pico_int.h"
 #include "sound/ym2612.h"
 
+#ifdef _NDS
+DTCM_BSS
+#endif
 struct Pico Pico;
 struct PicoMem PicoMem;
 PicoInterface PicoIn;

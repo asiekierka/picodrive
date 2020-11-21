@@ -89,11 +89,13 @@ void cpu68k_map_all_ram(int start_addr, int end_addr, void *ptr, int is_sub)
     r16map = m68k_read16_map;
     w8map = m68k_write8_map;
     w16map = m68k_write16_map;
+#ifndef NO_MCD
   } else {
     r8map = s68k_read8_map;
     r16map = s68k_read16_map;
     w8map = s68k_write8_map;
     w16map = s68k_write16_map;
+#endif
   }
 
   addr -= start_addr;
@@ -602,7 +604,9 @@ u32 PicoRead8_io(u32 a)
     goto end;
   }
 
+#ifndef NO_32X
   d = PicoRead8_32x(a);
+#endif
 
 end:
   return d;
@@ -633,7 +637,9 @@ u32 PicoRead16_io(u32 a)
     goto end;
   }
 
+#ifndef NO_32X
   d = PicoRead16_32x(a);
+#endif
 
 end:
   return d;
@@ -659,7 +665,10 @@ void PicoWrite8_io(u32 a, u32 d)
     Pico.m.sram_reg |= (u8)(d & 3);
     return;
   }
+  
+#ifndef NO_32X
   PicoWrite8_32x(a, d);
+#endif
 }
 
 void PicoWrite16_io(u32 a, u32 d)
@@ -682,7 +691,10 @@ void PicoWrite16_io(u32 a, u32 d)
     Pico.m.sram_reg |= (u8)(d & 3);
     return;
   }
+  
+#ifndef NO_32X
   PicoWrite16_32x(a, d);
+#endif
 }
 
 #endif // _ASM_MEMORY_C
