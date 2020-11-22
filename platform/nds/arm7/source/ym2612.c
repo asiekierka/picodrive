@@ -124,7 +124,9 @@ extern YM2612 *ym2612_940;
 
 #endif
 
-void memset32(int *dest, int c, int count);
+void memset32(int *dest, int c, int count) {
+	memset(dest, c, count << 2);
+}
 
 
 #ifndef __GNUC__
@@ -187,17 +189,9 @@ void memset32(int *dest, int c, int count);
 *   2  - sinus sign bit           (Y axis)
 *   TL_RES_LEN - sinus resolution (X axis)
 */
-//#define TL_TAB_LEN (13*2*TL_RES_LEN)
-#define TL_TAB_LEN (13*TL_RES_LEN*256/8) // 106496*2
-UINT16 ym_tl_tab[TL_TAB_LEN];
-
-/* ~3K wasted but oh well */
-UINT16 ym_tl_tab2[13*TL_RES_LEN];
+extern UINT16 *ym_tl_tab;
 
 #define ENV_QUIET		(2*13*TL_RES_LEN/8)
-
-/* sin waveform table in 'decibel' scale (use only period/4 values) */
-static UINT16 ym_sin_tab[256];
 
 /* sustain level table (3dB per step) */
 /* bit0, bit1, bit2, bit3, bit4, bit5, bit6 */
@@ -415,103 +409,8 @@ static const UINT32 lfo_samples_per_step[8] = {108, 77, 71, 67, 62, 44, 8, 5};
 */
 static const UINT8 lfo_ams_depth_shift[4] = {8, 3, 1, 0};
 
-
-
-/*There are 8 different LFO PM depths available, they are:
-  0, 3.4, 6.7, 10, 14, 20, 40, 80 (cents)
-
-  Modulation level at each depth depends on F-NUMBER bits: 4,5,6,7,8,9,10
-  (bits 8,9,10 = FNUM MSB from OCT/FNUM register)
-
-  Here we store only first quarter (positive one) of full waveform.
-  Full table (lfo_pm_table) containing all 128 waveforms is build
-  at run (init) time.
-
-  One value in table below represents 4 (four) basic LFO steps
-  (1 PM step = 4 AM steps).
-
-  For example:
-   at LFO SPEED=0 (which is 108 samples per basic LFO step)
-   one value from "lfo_pm_output" table lasts for 432 consecutive
-   samples (4*108=432) and one full LFO waveform cycle lasts for 13824
-   samples (32*432=13824; 32 because we store only a quarter of whole
-            waveform in the table below)
-*/
-static const UINT8 lfo_pm_output[7*8][8]={ /* 7 bits meaningful (of F-NUMBER), 8 LFO output levels per one depth (out of 32), 8 LFO depths */
-/* FNUM BIT 4: 000 0001xxxx */
-/* DEPTH 0 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 1 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 2 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 3 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 4 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 5 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 6 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 7 */ {0,   0,   0,   0,   1,   1,   1,   1},
-
-/* FNUM BIT 5: 000 0010xxxx */
-/* DEPTH 0 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 1 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 2 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 3 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 4 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 5 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 6 */ {0,   0,   0,   0,   1,   1,   1,   1},
-/* DEPTH 7 */ {0,   0,   1,   1,   2,   2,   2,   3},
-
-/* FNUM BIT 6: 000 0100xxxx */
-/* DEPTH 0 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 1 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 2 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 3 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 4 */ {0,   0,   0,   0,   0,   0,   0,   1},
-/* DEPTH 5 */ {0,   0,   0,   0,   1,   1,   1,   1},
-/* DEPTH 6 */ {0,   0,   1,   1,   2,   2,   2,   3},
-/* DEPTH 7 */ {0,   0,   2,   3,   4,   4,   5,   6},
-
-/* FNUM BIT 7: 000 1000xxxx */
-/* DEPTH 0 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 1 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 2 */ {0,   0,   0,   0,   0,   0,   1,   1},
-/* DEPTH 3 */ {0,   0,   0,   0,   1,   1,   1,   1},
-/* DEPTH 4 */ {0,   0,   0,   1,   1,   1,   1,   2},
-/* DEPTH 5 */ {0,   0,   1,   1,   2,   2,   2,   3},
-/* DEPTH 6 */ {0,   0,   2,   3,   4,   4,   5,   6},
-/* DEPTH 7 */ {0,   0,   4,   6,   8,   8, 0xa, 0xc},
-
-/* FNUM BIT 8: 001 0000xxxx */
-/* DEPTH 0 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 1 */ {0,   0,   0,   0,   1,   1,   1,   1},
-/* DEPTH 2 */ {0,   0,   0,   1,   1,   1,   2,   2},
-/* DEPTH 3 */ {0,   0,   1,   1,   2,   2,   3,   3},
-/* DEPTH 4 */ {0,   0,   1,   2,   2,   2,   3,   4},
-/* DEPTH 5 */ {0,   0,   2,   3,   4,   4,   5,   6},
-/* DEPTH 6 */ {0,   0,   4,   6,   8,   8, 0xa, 0xc},
-/* DEPTH 7 */ {0,   0,   8, 0xc,0x10,0x10,0x14,0x18},
-
-/* FNUM BIT 9: 010 0000xxxx */
-/* DEPTH 0 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 1 */ {0,   0,   0,   0,   2,   2,   2,   2},
-/* DEPTH 2 */ {0,   0,   0,   2,   2,   2,   4,   4},
-/* DEPTH 3 */ {0,   0,   2,   2,   4,   4,   6,   6},
-/* DEPTH 4 */ {0,   0,   2,   4,   4,   4,   6,   8},
-/* DEPTH 5 */ {0,   0,   4,   6,   8,   8, 0xa, 0xc},
-/* DEPTH 6 */ {0,   0,   8, 0xc,0x10,0x10,0x14,0x18},
-/* DEPTH 7 */ {0,   0,0x10,0x18,0x20,0x20,0x28,0x30},
-
-/* FNUM BIT10: 100 0000xxxx */
-/* DEPTH 0 */ {0,   0,   0,   0,   0,   0,   0,   0},
-/* DEPTH 1 */ {0,   0,   0,   0,   4,   4,   4,   4},
-/* DEPTH 2 */ {0,   0,   0,   4,   4,   4,   8,   8},
-/* DEPTH 3 */ {0,   0,   4,   4,   8,   8, 0xc, 0xc},
-/* DEPTH 4 */ {0,   0,   4,   8,   8,   8, 0xc,0x10},
-/* DEPTH 5 */ {0,   0,   8, 0xc,0x10,0x10,0x14,0x18},
-/* DEPTH 6 */ {0,   0,0x10,0x18,0x20,0x20,0x28,0x30},
-/* DEPTH 7 */ {0,   0,0x20,0x30,0x40,0x40,0x50,0x60},
-
-};
-
 /* all 128 LFO PM waveforms */
-static INT32 lfo_pm_table[128*8*32]; /* 128 combinations of 7 bits meaningful (of F-NUMBER), 8 LFO depths, 32 LFO output levels per one depth */
+extern INT32 *lfo_pm_table; /* 128 combinations of 7 bits meaningful (of F-NUMBER), 8 LFO depths, 32 LFO output levels per one depth */
 
 /* there are 2048 FNUMs that can be generated using FNUM/BLK registers
 	but LFO works with one more bit of a precision so we really need 4096 elements */
@@ -1037,14 +936,7 @@ static void chan_render_loop(chan_rend_context *ct, int *buffer, int length)
 
 		/* mix sample to output buffer */
 		if (smp) {
-			if (ct->pack & 1) { /* stereo */
-				if (ct->pack & 0x20) /* L */ /* TODO: check correctness */
-					buffer[scounter*2] += smp;
-				if (ct->pack & 0x10) /* R */
-					buffer[scounter*2+1] += smp;
-			} else {
-				buffer[scounter] += smp;
-			}
+			buffer[scounter] += smp;
 			ct->algo |= 8;
 		}
 
@@ -1290,109 +1182,7 @@ static void reset_channels(FM_CH *CH)
 /* initialize generic tables */
 static void init_tables(void)
 {
-	signed int i,x,y,p;
-	signed int n;
-	double o,m;
-
-	for (i=0; i < 256; i++)
-	{
-		/* non-standard sinus */
-		m = sin( ((i*2)+1) * M_PI / SIN_LEN ); /* checked against the real chip */
-
-		/* we never reach zero here due to ((i*2)+1) */
-
-		if (m>0.0)
-			o = 8*log(1.0/m)/log(2);	/* convert to 'decibels' */
-		else
-			o = 8*log(-1.0/m)/log(2);	/* convert to 'decibels' */
-
-		o = o / (ENV_STEP/4);
-
-		n = (int)(2.0*o);
-		if (n&1)						/* round to nearest */
-			n = (n>>1)+1;
-		else
-			n = n>>1;
-
-		ym_sin_tab[ i ] = n;
-		//dprintf("FM.C: sin [%4i]= %4i", i, ym_sin_tab[i]);
-	}
-
-	//dprintf("FM.C: ENV_QUIET= %08x", ENV_QUIET );
-
-
-	for (x=0; x < TL_RES_LEN; x++)
-	{
-		m = (1<<16) / pow(2, (x+1) * (ENV_STEP/4.0) / 8.0);
-		m = floor(m);
-
-		/* we never reach (1<<16) here due to the (x+1) */
-		/* result fits within 16 bits at maximum */
-
-		n = (int)m;		/* 16 bits here */
-		n >>= 4;		/* 12 bits here */
-		if (n&1)		/* round to nearest */
-			n = (n>>1)+1;
-		else
-			n = n>>1;
-						/* 11 bits here (rounded) */
-		n <<= 2;		/* 13 bits here (as in real chip) */
-		ym_tl_tab2[ x ] = n;
-
-		for (i=1; i < 13; i++)
-		{
-			ym_tl_tab2[ x + i*TL_RES_LEN ] = n >> i;
-		}
-	}
-
-	for (x=0; x < 256; x++)
-	{
-		int sin = ym_sin_tab[ x ];
-
-		for (y=0; y < 2*13*TL_RES_LEN/8; y+=2)
-		{
-			p = (y<<2) + sin;
-			if (p >= 13*TL_RES_LEN)
-				 ym_tl_tab[(y<<7) | x] = 0;
-			else ym_tl_tab[(y<<7) | x] = ym_tl_tab2[p];
-		}
-	}
-
-
-	/* build LFO PM modulation table */
-	for(i = 0; i < 8; i++) /* 8 PM depths */
-	{
-		UINT8 fnum;
-		for (fnum=0; fnum<128; fnum++) /* 7 bits meaningful of F-NUMBER */
-		{
-			UINT8 value;
-			UINT8 step;
-			UINT32 offset_depth = i;
-			UINT32 offset_fnum_bit;
-			UINT32 bit_tmp;
-
-			for (step=0; step<8; step++)
-			{
-				value = 0;
-				for (bit_tmp=0; bit_tmp<7; bit_tmp++) /* 7 bits */
-				{
-					if (fnum & (1<<bit_tmp)) /* only if bit "bit_tmp" is set */
-					{
-						offset_fnum_bit = bit_tmp * 8;
-						value += lfo_pm_output[offset_fnum_bit + offset_depth][step];
-					}
-				}
-				lfo_pm_table[(fnum*32*8) + (i*32) + step   + 0] = value;
-				lfo_pm_table[(fnum*32*8) + (i*32) +(step^7)+ 8] = value;
-				lfo_pm_table[(fnum*32*8) + (i*32) + step   +16] = -value;
-				lfo_pm_table[(fnum*32*8) + (i*32) +(step^7)+24] = -value;
-			}
-		}
-	}
-
-#ifdef _NDS
-	ndsFifoSendYM2612InitTables(ym_tl_tab, lfo_pm_table, fn_table);
-#endif
+	// loaded via FIFO pointers to main memory
 }
 
 
@@ -1587,7 +1377,7 @@ int YM2612UpdateOne_(int *buffer, int length, int stereo, int is_buf_empty)
 	int active_chs = 0;
 
 	// if !is_buf_empty, it means it has valid samples to mix with, else it may contain trash
-	if (is_buf_empty) memset32(buffer, 0, length<<stereo);
+	if (is_buf_empty) memset32(buffer, 0, length);
 
 /*
 	{
@@ -1620,17 +1410,16 @@ int YM2612UpdateOne_(int *buffer, int length, int stereo, int is_buf_empty)
 	refresh_fc_eg_chan( &ym2612.CH[5] );
 
 	pan = ym2612.OPN.pan;
-	if (stereo) stereo = 1;
 
 	/* mix to 32bit dest */
 	// flags: stereo, ?, disabled, ?, pan_r, pan_l
 	chan_render_prep();
-	if (ym2612.slot_mask & 0x00000f) active_chs |= chan_render(buffer, length, 0, stereo|((pan&0x003)<<4)) << 0;
-	if (ym2612.slot_mask & 0x0000f0) active_chs |= chan_render(buffer, length, 1, stereo|((pan&0x00c)<<2)) << 1;
-	if (ym2612.slot_mask & 0x000f00) active_chs |= chan_render(buffer, length, 2, stereo|((pan&0x030)   )) << 2;
-	if (ym2612.slot_mask & 0x00f000) active_chs |= chan_render(buffer, length, 3, stereo|((pan&0x0c0)>>2)) << 3;
-	if (ym2612.slot_mask & 0x0f0000) active_chs |= chan_render(buffer, length, 4, stereo|((pan&0x300)>>4)) << 4;
-	if (ym2612.slot_mask & 0xf00000) active_chs |= chan_render(buffer, length, 5, stereo|((pan&0xc00)>>6)|(ym2612.dacen<<2)) << 5;
+	if (ym2612.slot_mask & 0x00000f) active_chs |= chan_render(buffer, length, 0, ((pan&0x003)<<4)) << 0;
+	if (ym2612.slot_mask & 0x0000f0) active_chs |= chan_render(buffer, length, 1, ((pan&0x00c)<<2)) << 1;
+	if (ym2612.slot_mask & 0x000f00) active_chs |= chan_render(buffer, length, 2, ((pan&0x030)   )) << 2;
+	if (ym2612.slot_mask & 0x00f000) active_chs |= chan_render(buffer, length, 3, ((pan&0x0c0)>>2)) << 3;
+	if (ym2612.slot_mask & 0x0f0000) active_chs |= chan_render(buffer, length, 4, ((pan&0x300)>>4)) << 4;
+	if (ym2612.slot_mask & 0xf00000) active_chs |= chan_render(buffer, length, 5, ((pan&0xc00)>>6)|(ym2612.dacen<<2)) << 5;
 	chan_render_finish();
 
 	return active_chs; // 1 if buffer updated

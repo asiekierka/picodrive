@@ -15,6 +15,8 @@
 #include "pico/pico_int.h"
 #include "file.h"
 #include "config.h"
+#include "fifo.h"
+#include "sound_comms.h"
 
 #ifdef USE_ZLIB
 #include "zlib.h"
@@ -50,7 +52,8 @@ void screen_alphalerp(void) {
 void screen_swap_buffers(void) {
 	u32 screen_ptr_val = ((u32) screen_ptr);
 	displayed_screen_ptr = (u16*) (screen_ptr_val);
-	screen_ptr = (u16*) (screen_ptr_val ^ 0x40000);
+//  TODO: On DS, we're using VRAM banks C/D for storing the giant YM2612 table of doom 
+//	screen_ptr = (u16*) (screen_ptr_val ^ 0x40000);
 }
 
 void screen_set_size(u16 x, u16 y, u16 width, u16 height) {
@@ -230,21 +233,19 @@ static int DrawFrame()
 
 void EmulateFrame()
 {
-	int i=0,need=0;
-	// int time=0,frame=0;
-
 	if (choosingfile) {
 		return;
 	}
 
 	int fc_console_at = frame_counter_console;
-	need = fc_console_at - frame_counter_local;
+	int diff = fc_console_at - frame_counter_local;
+	int need = diff;
 	if(need <= 0) {
 		return;
 	}
 	if (need>MAX_FRAMESKIP) need=MAX_FRAMESKIP; // Limit frame skipping
 
-	for (i=0;i<need-1;i++) {
+	for (int i=0;i<need-1;i++) {
 		PicoIn.skipFrame = 1;
 		DoFrame(); // Frame skip if needed
 	}
@@ -252,7 +253,7 @@ void EmulateFrame()
 	frame_counter_local = fc_console_at;
 
 	DrawFrame();
-	frame_discrepancy[frame_discrepancy_idx++] = need;
+	frame_discrepancy[frame_discrepancy_idx++] = diff;
 	if (frame_discrepancy_idx >= FRAME_DISCREPANCY_COUNT) {
 		for (int i = 0; i < FRAME_DISCREPANCY_COUNT; i++) {
 			frame_fps += divf32(60 << 12, frame_discrepancy[i] << 12);
@@ -305,6 +306,7 @@ int EmulateExit()
 int EmulateInit()
 {
 	iprintf("\x1b[6;0H\x1b[0J");
+	PicoIn.opt = POPT_EN_FM | POPT_EN_Z80 | POPT_EXT_FM;
 	PicoInit();
 	iprintf("Loading %s ... \n", fileName);
 
@@ -337,12 +339,26 @@ void emu_video_mode_change(int start_line, int line_count, int is_32cols) {
 	}
 }
 
+void picoFifoDatamsgHandler(int num_bytes, void *userdata) {
+	u8 buffer[64];
+	fifoGetDatamsg(FIFO_CHANNEL_PICO, 64, buffer);
+	u16 id = *((u16*)buffer);
+	switch (id) {
+	case FIFO_CMD_DBG_OUT: {
+		PicoDSMessageDbgOut *msg = buffer;
+		iprintf("%s\n", msg->debug_data);
+	} break;
+	}
+}
+
+static short sound_buffer[1600];
+
 int main(void)
 {
 	static bool fatPresent = false;
 	fileName[0] = 0;
 
-	vramSetPrimaryBanks(VRAM_A_MAIN_BG, VRAM_B_MAIN_BG, VRAM_C_MAIN_BG, VRAM_D_MAIN_BG);
+	vramSetPrimaryBanks(VRAM_A_MAIN_BG, VRAM_B_MAIN_BG, VRAM_C_ARM7, VRAM_D_ARM7);
 	vramSetBankH(VRAM_H_SUB_BG);
 	vramSetBankI(VRAM_I_SUB_BG_0x06208000);
 
@@ -364,6 +380,7 @@ int main(void)
 	}
 	else {
 		iprintf("FAT init failed.\n");
+		swiWaitForVBlank();
 		fatPresent = false;
 	}
 
@@ -378,6 +395,9 @@ int main(void)
 
 	irqEnable(IRQ_VBLANK);
 	irqSet(IRQ_VBLANK, processvblank);
+
+	fifoSetDatamsgHandler(FIFO_CHANNEL_PICO, picoFifoDatamsgHandler, NULL);
+	ndsFifoSendNdsInit(sound_buffer, sizeof(sound_buffer));
 
 	EmulateInit();
 

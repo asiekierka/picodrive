@@ -20,6 +20,8 @@
 #define ITCM_CODE	__attribute__((section(".itcm"), long_call))
 #define DTCM_DATA	__attribute__((section(".dtcm")))
 #define DTCM_BSS	__attribute__((section(".sbss")))
+
+#include "../platform/nds/arm9/source/fifo.h"
 #endif
 
 //

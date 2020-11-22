@@ -22,8 +22,10 @@ static int PsndBuffer[2*(44100+100)/50];
 // dac, psg
 static unsigned short dac_info[312+4]; // pos in sample buffer
 
+#ifndef NO_MCD
 // cdda output buffer
 short cdda_out_buffer[2*1152];
+#endif
 
 // sn76496
 extern int *sn76496_regs;
@@ -125,15 +127,23 @@ void PsndRerate(int preserve_state)
 
   // clear all buffers
   memset32(PsndBuffer, 0, sizeof(PsndBuffer)/4);
+#ifndef NO_MCD
   memset(cdda_out_buffer, 0, sizeof(cdda_out_buffer));
+#endif
   if (PicoIn.sndOut)
     PsndClear();
 
   // set mixer
   PsndMix_32_to_16l = (PicoIn.opt & POPT_EN_STEREO) ? mix_32_to_16l_stereo : mix_32_to_16_mono;
 
+#ifndef NO_PICO
   if (PicoIn.AHW & PAHW_PICO)
     PicoReratePico();
+#endif
+
+#ifdef _NDS
+  if (PicoIn.opt & 0x200) ndsFifoSendPsndRerate(preserve_state, Pico.m.pal, PicoIn.opt);
+#endif
 }
 
 
@@ -150,6 +160,10 @@ PICO_INTERNAL void PsndStartFrame(void)
   Pico.snd.dac_line = Pico.snd.psg_line = 0;
   Pico.m.status &= ~1;
   dac_info[224] = Pico.snd.len_use;
+  
+#ifdef _NDS
+  if (PicoIn.opt & 0x200) ndsFifoSendPsndStartFrame();
+#endif
 }
 
 PICO_INTERNAL void PsndDoDAC(int line_to)
@@ -282,10 +296,12 @@ static int PsndRender(int offset, int length)
 
   pprof_start(sound);
 
+#ifndef NO_PICO
   if (PicoIn.AHW & PAHW_PICO) {
     PicoPicoPCMUpdate(PicoIn.sndOut+offset, length, stereo);
     return length;
   }
+#endif
 
   // Add in the stereo FM buffer
   if (PicoIn.opt & POPT_EN_FM) {
@@ -296,6 +312,7 @@ static int PsndRender(int offset, int length)
 //printf("active_chs: %02x\n", buf32_updated);
   (void)buf32_updated;
 
+#ifndef NO_MCD
   // CD: PCM sound
   if (PicoIn.AHW & PAHW_MCD) {
     pcd_pcm_update(buf32, length, stereo);
@@ -314,9 +331,12 @@ static int PsndRender(int offset, int length)
     else
       cdda_raw_update(buf32, length);
   }
+#endif
 
+#ifndef NO_32X
   if ((PicoIn.AHW & PAHW_32X) && (PicoIn.opt & POPT_EN_PWM))
     p32x_pwm_update(buf32, length, stereo);
+#endif
 
   // convert + limit to normal 16bit output
   PsndMix_32_to_16l(PicoIn.sndOut+offset, buf32, length);
@@ -330,6 +350,11 @@ static int PsndRender(int offset, int length)
 PICO_INTERNAL void PsndGetSamples(int y)
 {
   static int curr_pos = 0;
+
+#ifdef _NDS
+  if (PicoIn.opt&0x200) ndsFifoSendPsndGetSamples(y);
+  return;
+#endif
 
   if (ym2612.dacen && Pico.snd.dac_line < y)
     PsndDoDAC(y - 1);

@@ -18,6 +18,7 @@ BUILD		:=	build
 SOURCE_DIRS	:= source ../../../pico ../../../pico/sound ../../../pico/carthw \
 	../../../cpu/cyclone ../../../cpu/cyclone/tools ../../../cpu/DrZ80
 SOURCES		:= \
+	source/fifo.c \
 	source/file.c \
 	source/main.c \
 	source/pico_nds.c \
@@ -34,7 +35,7 @@ SOURCES		:= \
 	../../../pico/sound/ym2612.c \
 	../../../pico/sound/mix.c
 
-THUMB_OBJECTS 	:= \
+THUMB_OBJECTS 	:= fifo.o \
 	file.o main.o pico_nds.o \
 	patch.o debug.o media.o cart.o \
 	state.o
@@ -48,7 +49,7 @@ SOURCES_ASM	:= \
 	../../../pico/draw_arm.s \
 	../../../pico/draw2_arm.s
 
-INCLUDES	:=	include source ../../..
+INCLUDES	:=	include source ../../.. ../common
 DATA		:=
 
 
@@ -70,6 +71,8 @@ CFLAGS	+=	-D_ASM_MISC_C -D_ASM_MEMORY_C -D_ASM_DRAW_C
 CXXFLAGS	:=	$(CFLAGS) -fno-rtti -fno-exceptions
 
 ASFLAGS	:=	-g $(ARCH) -march=armv5te -mtune=arm946e-s -DARM9 -D_NDS
+
+ASFLAGS	+=	-DNO_32X
 
 LDFLAGS	=	-specs=ds_arm9.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 

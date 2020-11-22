@@ -955,13 +955,18 @@ static int ym2612_write_local(u32 a, u32 d, int is_from_z80)
   int addr;
 
   a &= 3;
+
   if (a == 1 && ym2612.OPN.ST.address == 0x2a) /* DAC data */
   {
     int scanline = get_scanline(is_from_z80);
     //elprintf(EL_STATUS, "%03i -> %03i dac w %08x z80 %i", Pico.snd.dac_line, scanline, d, is_from_z80);
     ym2612.dacout = ((int)d - 0x80) << 6;
-    if (ym2612.dacen)
+    if (ym2612.dacen) {
       PsndDoDAC(scanline);
+#ifdef _NDS
+      if (PicoIn.opt & POPT_EXT_FM) ndsFifoSendYM2612Write(0x2a, d, scanline);
+#endif
+    }
     return 0;
   }
 
@@ -1038,6 +1043,9 @@ static int ym2612_write_local(u32 a, u32 d, int is_from_z80)
 #ifdef __GP2X__
             if (PicoIn.opt & POPT_EXT_FM) return YM2612Write_940(a, d, get_scanline(is_from_z80));
 #endif
+#ifdef _NDS
+            if (PicoIn.opt & POPT_EXT_FM) ndsFifoSendYM2612Write(addr, d, get_scanline(is_from_z80));
+#endif
             return 1;
           }
           return 0;
@@ -1051,9 +1059,17 @@ static int ym2612_write_local(u32 a, u32 d, int is_from_z80)
 #ifdef __GP2X__
           if (PicoIn.opt & POPT_EXT_FM) YM2612Write_940(a, d, scanline);
 #endif
+#ifdef _NDS
+          if (PicoIn.opt & POPT_EXT_FM) ndsFifoSendYM2612Write(addr, d, scanline);
+#endif
           return 0;
         }
       }
+      
+#ifdef _NDS
+      if (PicoIn.opt & POPT_EXT_FM) ndsFifoSendYM2612Write(addr, d, get_scanline(is_from_z80));
+#endif
+
       break;
 
     case 2: /* address port 1 */
@@ -1070,12 +1086,16 @@ static int ym2612_write_local(u32 a, u32 d, int is_from_z80)
 
       addr = ym2612.OPN.ST.address | 0x100;
       ym2612.REGS[addr] = d;
+
+#ifdef _NDS
+      if (PicoIn.opt & POPT_EXT_FM) ndsFifoSendYM2612Write(addr, d, get_scanline(is_from_z80));
+#endif
+
       break;
   }
 
 #ifdef __GP2X__
-  if (PicoIn.opt & POPT_EXT_FM)
-    return YM2612Write_940(a, d, get_scanline(is_from_z80));
+  if (PicoIn.opt & POPT_EXT_FM) return YM2612Write_940(a, d, get_scanline(is_from_z80));
 #endif
   return YM2612Write_(a, d);
 }
@@ -1126,6 +1146,7 @@ void ym2612_pack_state(void)
   elprintf(EL_YMTIMER, "save: timer a %i/%i", tat >> 16, tac);
   elprintf(EL_YMTIMER, "save: timer b %i/%i", tbt >> 16, tbc);
 
+  // TODO NDS: PicoStateSave
 #ifdef __GP2X__
   if (PicoIn.opt & POPT_EXT_FM)
     YM2612PicoStateSave2_940(tat, tbt);
@@ -1161,6 +1182,7 @@ void ym2612_unpack_state(void)
     ym2612_write_local(3, ym2612.REGS[i|0x100], 0);
   }
 
+  // TODO NDS: PicoStateLoad
 #ifdef __GP2X__
   if (PicoIn.opt & POPT_EXT_FM)
     ret = YM2612PicoStateLoad2_940(&tat, &tbt);
@@ -1185,14 +1207,6 @@ void ym2612_unpack_state(void)
   elprintf(EL_YMTIMER, "load: %i/%i, timer_a_next_oflow %i", tat>>16, tac>>16, Pico.t.timer_a_next_oflow >> 8);
   elprintf(EL_YMTIMER, "load: %i/%i, timer_b_next_oflow %i", tbt>>16, tbc>>16, Pico.t.timer_b_next_oflow >> 8);
 }
-
-#if defined(NO_32X) && defined(_ASM_MEMORY_C)
-// referenced by asm code
-u32 PicoRead8_32x(u32 a) { return 0; }
-u32 PicoRead16_32x(u32 a) { return 0; }
-void PicoWrite8_32x(u32 a, u32 d) {}
-void PicoWrite16_32x(u32 a, u32 d) {}
-#endif
 
 // -----------------------------------------------------------------
 //                        z80 memhandlers

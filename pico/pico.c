@@ -144,6 +144,9 @@ PICO_INTERNAL void PicoDetectRegion(void)
   else if (support&1)   hw=0x00;          // Japan NTSC
   else hw=0x80; // USA
 
+  // TODO NDS
+  pal=0;
+
   Pico.m.hardware=(unsigned char)(hw|0x20); // No disk attached
   Pico.m.pal=pal;
 }

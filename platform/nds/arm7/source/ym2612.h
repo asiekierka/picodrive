@@ -168,7 +168,12 @@ void *YM2612GetRegs(void);
 void YM2612PicoStateSave2(int tat, int tbt);
 int  YM2612PicoStateLoad2(int *tat, int *tbt);
 
-#if defined(__GP2X__)
+#ifndef __GP2X__
+#define YM2612Init          YM2612Init_
+#define YM2612ResetChip     YM2612ResetChip_
+#define YM2612UpdateOne     YM2612UpdateOne_
+#define YM2612PicoStateLoad YM2612PicoStateLoad_
+#else
 /* GP2X specific */
 #include "../../platform/gp2x/940ctl.h"
 extern int PicoIn.opt;
@@ -187,26 +192,6 @@ extern int PicoIn.opt;
 	if (PicoIn.opt&0x200) YM2612PicoStateLoad_940(); \
 	else               YM2612PicoStateLoad_(); \
 }
-#elif defined(_NDS)
-#include "../../platform/nds/arm9/source/fifo.h"
-// not used
-#define YM2612Init          YM2612Init_
-#define YM2612ResetChip() { \
-	if (PicoIn.opt&0x200) ndsFifoSendYM2612ResetChip(); \
-	else               YM2612ResetChip_(); \
-}
-// not used
-#define YM2612UpdateOne     YM2612UpdateOne_
-/* #define YM2612PicoStateLoad() { \
-	if (PicoIn.opt&0x200) YM2612PicoStateLoad_940(); \
-	else               YM2612PicoStateLoad_(); \
-} */
-// TODO NDS: PicoStateLoad
-#define YM2612PicoStateLoad YM2612PicoStateLoad_
-#else
-#define YM2612ResetChip     YM2612ResetChip_
-#define YM2612UpdateOne     YM2612UpdateOne_
-#define YM2612PicoStateLoad YM2612PicoStateLoad_
 #endif /* __GP2X__ */
 
 

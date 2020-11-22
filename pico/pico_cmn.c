@@ -151,7 +151,11 @@ static int PicoFrameHints(void)
     }
 
     // get samples from sound chips
+#ifdef _NDS
+    if ((y == 224 || y == line_sample))
+#else
     if ((y == 224 || y == line_sample) && PicoIn.sndOut)
+#endif
     {
       cycles = SekCyclesDone();
 
@@ -239,7 +243,11 @@ static int PicoFrameHints(void)
 #endif
 
   // get samples from sound chips
+#ifdef _NDS
+  if (y == 224)
+#else
   if (y == 224 && PicoIn.sndOut)
+#endif
     PsndGetSamples(y);
 
   // Run scanline:
@@ -325,9 +333,9 @@ static int PicoFrameHints(void)
   cycles = SekCyclesDone();
   if (Pico.m.z80Run && !Pico.m.z80_reset && (PicoIn.opt&POPT_EN_Z80))
     PicoSyncZ80(cycles);
-  if (PicoIn.sndOut && ym2612.dacen && Pico.snd.dac_line < lines)
+  if (ym2612.dacen && Pico.snd.dac_line < lines)
     PsndDoDAC(lines - 1);
-  if (PicoIn.sndOut && Pico.snd.psg_line < lines)
+  if (Pico.snd.psg_line < lines)
     PsndDoPSG(lines - 1);
 
 #ifdef PICO_CD
